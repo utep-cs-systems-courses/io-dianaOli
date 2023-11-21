@@ -1,0 +1,102 @@
+
+#include <msp430.h>
+#include "libTimer.h"
+#include "buzzer.h"
+#include "notes.h"
+
+
+int blinks = 0;
+int led = 0;
+
+
+int main() {
+  configureClocks();
+  buzzer_init();
+  switch_init();
+  led_init();
+
+  ///* start buzzing!!! 2MHz/1000 = 2kHz*/
+  enableWDTInterrupts();
+  or_sr(0x18);          // CPU off, GIE on
+}
+
+int halfNoteLength = 200;
+int quarterNoteLength = 125;
+int eighthNoteLength = 63;
+int seconds = 0;
+int notes[]={659,0, 659,0, 659, 0, 659,0, 659,0, 659, 0};/* 659, 0, 698, 784, 659, 0, 0, 659, 659, 659, 659, 659, 0, 698, 784, 659, 0, 0, 784, 784, 659, 659, 659, 659, 698, 0, 0};*/
+int noteLength[] = {8,2,8,2,4,2,8,2,8,2,4,2};
+int i = 0;
+int playSiren = 0;
+int led_seconds = 0;
+int playSus = 0;
+int sus_notes[] = {15288, 32394};
+int sus_seconds = 0;
+
+
+void __interrupt_vec(WDT_VECTOR) WDT()
+{
+  if(playSiren)
+    play_Siren();
+  else if (playSus)
+    play_sus();
+  else
+    buzzer_set_period(0);
+
+
+  led_seconds++;
+  if(led_seconds >= blinks){
+    led_seconds = 0;
+    if(led)
+      toggle_green();
+    else
+      toggle_red();
+  }
+
+}
+
+void play_Siren()
+{
+  seconds++;
+  if(i > 10){
+    i = 0;
+    playSiren = 0;
+  }
+  if(noteLength[i]){
+    if(!i)
+      buzzer_set_period(notes[0]);
+
+    if(seconds >= quarterNoteLength){
+      seconds = 0;
+      i++;
+      buzzer_set_period(notes[i]);
+    }
+  }
+  else{
+    if(seconds >=eighthNoteLength){
+      seconds = 0;
+      i++;
+      buzzer_set_period(notes[i]);
+    }
+  }
+}
+
+
+int j = 0;
+void play_sus()
+{
+  sus_seconds++;
+  if(j > 1){
+    j = 0;
+    playSus = 0;
+  }
+  if(!j)
+    buzzer_set_period(sus_notes[0]);
+  if(sus_seconds >= halfNoteLength){
+    sus_seconds = 0;
+    j++;
+    buzzer_set_period(sus_notes[j]);
+  }
+  else if(sus_seconds >= eighthNoteLength)
+    buzzer_set_period(sus_notes[j]+1000);
+}
